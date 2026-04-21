@@ -1,0 +1,439 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>开普敦麻将计分器</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+    html, body { min-height: 100%; font-family: -apple-system, 'PingFang SC', 'Helvetica Neue', Arial, sans-serif; background: #f3f0eb; color: #1a1a1a; font-size: 15px; line-height: 1.5; -webkit-font-smoothing: antialiased; }
+
+    /* ===== 导航栏 ===== */
+    .navbar { display: flex; align-items: center; gap: 8px; padding: 13px 16px; background: rgba(255,255,255,0.95); border-bottom: 1px solid rgba(200,151,58,0.15); position: sticky; top: 0; z-index: 100; }
+    .nav-icon { font-size: 20px; }
+    .nav-title { font-size: 17px; font-weight: 700; flex: 1; }
+    .nav-badge { font-size: 11px; font-weight: 600; background: #c8973a; color: #fff; padding: 2px 8px; border-radius: 10px; }
+
+    /* ===== 主内容 ===== */
+    .content { max-width: 480px; margin: 0 auto; padding: 16px 16px 40px; }
+
+    /* ===== 通用卡片 ===== */
+    .card { background: #fff; border-radius: 18px; padding: 20px 16px; box-shadow: 0 2px 12px rgba(0,0,0,0.06); margin-bottom: 14px; }
+
+    /* ===== 字段 ===== */
+    .field { margin-bottom: 20px; }
+    .field-label { font-size: 13px; font-weight: 600; color: #666; margin-bottom: 9px; display: flex; align-items: center; gap: 7px; }
+    .hint-tag { font-size: 11px; font-weight: 500; color: #c8793a; background: #fff4e0; border: 1px solid #f4d090; border-radius: 4px; padding: 1px 6px; }
+    .hint-sub { font-size: 12px; font-weight: 400; color: #bbb; }
+
+    /* ===== Select ===== */
+    .select-wrap { position: relative; }
+    select { width: 100%; padding: 12px 34px 12px 13px; border: 1.5px solid #ece8e0; border-radius: 12px; background: #fafafa; color: #1a1a1a; font-size: 15px; appearance: none; -webkit-appearance: none; outline: none; }
+    select:focus { border-color: #c8973a; }
+    .sel-arrow { position: absolute; right: 13px; top: 50%; transform: translateY(-50%); color: #bbb; font-size: 14px; pointer-events: none; }
+
+    /* ===== 数字输入 ===== */
+    .num-row { display: flex; align-items: center; gap: 10px; }
+    .num-btn { width: 44px; height: 44px; border-radius: 12px; border: 1.5px solid #ece8e0; background: #f7f5f1; color: #c8973a; font-size: 22px; display: flex; align-items: center; justify-content: center; cursor: pointer; flex-shrink: 0; transition: background 0.12s, transform 0.1s; }
+    .num-btn:active { background: #ede9e2; transform: scale(0.93); }
+    .num-btn:disabled { color: #ccc; cursor: not-allowed; transform: none; }
+    .num-input { flex: 1; text-align: center; padding: 10px 0; border: 1.5px solid #ece8e0; border-radius: 12px; background: #fafafa; color: #1a1a1a; font-size: 22px; font-weight: 700; outline: none; -moz-appearance: textfield; }
+    .num-input::-webkit-inner-spin-button, .num-input::-webkit-outer-spin-button { -webkit-appearance: none; }
+    .num-input:focus { border-color: #c8973a; }
+    .num-input:disabled { color: #ccc; background: #f3f3f3; }
+    .zhuang-note { font-size: 12px; color: #c8973a; text-align: right; margin-top: 7px; font-weight: 600; }
+
+    /* ===== Switch ===== */
+    .field-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 22px; }
+    .field-row.stack { align-items: flex-start; flex-direction: column; gap: 10px; }
+    .field-row.stack .topline { width: 100%; display: flex; align-items: center; justify-content: space-between; }
+    .field-row .field-label { margin-bottom: 0; }
+    .switch-wrap { display: flex; align-items: center; gap: 9px; cursor: pointer; user-select: none; }
+    .switch { width: 52px; height: 30px; border-radius: 15px; background: #ddd; position: relative; transition: background 0.25s; }
+    .switch.on { background: #c8973a; }
+    .switch-thumb { position: absolute; top: 3px; left: 3px; width: 24px; height: 24px; border-radius: 50%; background: #fff; box-shadow: 0 1px 4px rgba(0,0,0,0.2); transition: transform 0.25s cubic-bezier(0.34,1.56,0.64,1); }
+    .switch.on .switch-thumb { transform: translateX(22px); }
+    .switch-txt { font-size: 13px; color: #aaa; min-width: 62px; }
+    .switch-txt.on { color: #c8973a; font-weight: 600; }
+
+    /* ===== 错误 ===== */
+    .err-box { background: #fff8f5; border: 1px solid #f4c4ab; border-radius: 12px; padding: 11px 13px; margin-bottom: 14px; display: none; }
+    .err-item { font-size: 13px; color: #e05c2a; margin-bottom: 3px; }
+    .err-item:last-child { margin-bottom: 0; }
+
+    /* ===== 计算按钮 ===== */
+    .calc-btn { width: 100%; padding: 16px; background: linear-gradient(135deg, #d4a843, #c8793a); color: #fff; font-size: 17px; font-weight: 700; border: none; border-radius: 14px; cursor: pointer; letter-spacing: 1px; box-shadow: 0 4px 16px rgba(200,151,58,0.3); transition: transform 0.13s, box-shadow 0.13s; }
+    .calc-btn:active { transform: scale(0.97); box-shadow: 0 2px 8px rgba(200,151,58,0.2); }
+
+    /* ===== 结果 ===== */
+    .result-section { animation: fadeUp 0.32s ease; }
+    @keyframes fadeUp { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: translateY(0); } }
+
+    .total-banner { background: linear-gradient(135deg, #d4a843 0%, #b87a2a 100%); border-radius: 18px; padding: 24px 18px 20px; text-align: center; margin-bottom: 14px; box-shadow: 0 6px 20px rgba(180,120,40,0.28); }
+    .total-lbl { font-size: 12px; color: rgba(255,255,255,0.8); letter-spacing: 1px; margin-bottom: 5px; }
+    .total-num { font-size: 62px; font-weight: 800; color: #fff; line-height: 1.1; }
+    .total-sub { font-size: 12px; color: rgba(255,255,255,0.75); margin-top: 5px; }
+    .pay-highlight { font-size: 14px; color: #fff; margin-top: 8px; font-weight: 700; }
+
+    .detail-title { font-size: 14px; font-weight: 700; color: #444; margin-bottom: 12px; }
+    .drow { display: flex; align-items: center; justify-content: space-between; padding: 10px 0; }
+    .dkey { font-size: 13px; color: #999; }
+    .dval { font-size: 14px; font-weight: 600; color: #1a1a1a; }
+    .dval-muted { font-size: 13px; color: #bbb; }
+    .dvr { height: 1px; background: #f3f0eb; }
+
+    .badge { border-radius: 6px; padding: 2px 9px; font-size: 13px; font-weight: 600; }
+    .badge-amber { background: #fff4e0; color: #c8793a; }
+    .badge-blue  { background: #e8f2ff; color: #3a7bc8; }
+    .badge-red   { background: #fff0f0; color: #e04545; }
+    .badge-gray  { background: #f3f3f3; color: #999; }
+
+    .formula-box { margin-top: 14px; background: #faf8f4; border-radius: 0 12px 12px 0; padding: 13px 15px; border-left: 3px solid #c8973a; }
+    .formula-lbl { font-size: 11px; color: #aaa; margin-bottom: 5px; }
+    .formula-txt { font-size: 15px; font-weight: 700; color: #333; font-family: 'Courier New', monospace; }
+
+    .sanjin-note { margin-top: 11px; background: #fff8f0; border: 1px solid #f4ddb0; border-radius: 10px; padding: 9px 12px; font-size: 12px; color: #b87a2a; line-height: 1.6; display: none; }
+
+    /* ===== 规则 ===== */
+    .rules-title { font-size: 13px; font-weight: 700; color: #777; margin-bottom: 12px; }
+    .rules-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px; }
+    .rule-item { background: #faf8f4; border-radius: 10px; padding: 9px 11px; display: flex; justify-content: space-between; align-items: center; }
+    .rule-item.hl { background: #fff8ee; border: 1px solid #f0d99a; }
+    .rname { font-size: 12px; color: #777; }
+    .rscore { font-size: 12px; font-weight: 700; color: #c8793a; }
+    .rules-note { font-size: 11px; color: #bbb; line-height: 1.8; background: #fafafa; border-radius: 10px; padding: 9px 12px; }
+
+    .footer { text-align: center; font-size: 11px; color: #ccc; padding-top: 4px; }
+  </style>
+</head>
+<body>
+
+<!-- 顶部导航 -->
+<div class="navbar">
+  <span class="nav-icon">🀄</span>
+  <span class="nav-title">开普敦麻将计分器</span>
+  <span class="nav-badge">16张</span>
+</div>
+
+<div class="content">
+
+  <!-- 输入表单 -->
+  <div class="card">
+
+    <!-- 胡牌类型 -->
+    <div class="field">
+      <div class="field-label">胡牌类型</div>
+      <div class="select-wrap">
+        <select id="handType" onchange="syncGoldState()">
+          <option value="pinghu">平胡（基础分 10）</option>
+          <option value="pengpeng">碰碰胡（基础分 20）</option>
+          <option value="qingyise">清一色（基础分 30）</option>
+          <option value="sanjindao">三金倒（基础分 50）</option>
+        </select>
+        <span class="sel-arrow">▾</span>
+      </div>
+    </div>
+
+    <!-- 花牌数量 -->
+    <div class="field">
+      <div class="field-label">花牌数量</div>
+      <div class="num-row">
+        <button class="num-btn" onclick="change('flowers', -1)">－</button>
+        <input type="number" class="num-input" id="flowers" value="0" min="0" oninput="clamp('flowers', 0)" />
+        <button class="num-btn" onclick="change('flowers', 1)">＋</button>
+      </div>
+    </div>
+
+    <!-- 金牌数量 -->
+    <div class="field">
+      <div class="field-label" id="gold-label">
+        金牌数量
+      </div>
+      <div class="num-row">
+        <button class="num-btn" id="gold-dec" onclick="change('golds', -1)">－</button>
+        <input type="number" class="num-input" id="golds" value="0" min="0" oninput="clamp('golds', 0)" />
+        <button class="num-btn" id="gold-inc" onclick="change('golds', 1)">＋</button>
+      </div>
+    </div>
+
+    <!-- 是否做庄 -->
+    <div class="field-row stack">
+      <div class="topline">
+        <div class="field-label">是否做庄</div>
+        <div class="switch-wrap" onclick="toggleDealer()">
+          <div class="switch" id="dealer-switch-el"><div class="switch-thumb"></div></div>
+          <span class="switch-txt" id="dealer-switch-txt">否（不算庄）</span>
+        </div>
+      </div>
+      <div class="field" id="zhuang-field" style="width:100%; display:none; margin-bottom:0;">
+        <div class="field-label">庄次数 <span class="hint-sub">（只有做庄时才生效）</span></div>
+        <div class="num-row">
+          <button class="num-btn" onclick="change('zhuangCount', -1)">－</button>
+          <input type="number" class="num-input" id="zhuangCount" value="1" min="1" oninput="clamp('zhuangCount', 1); updateZhuangNote()" />
+          <button class="num-btn" onclick="change('zhuangCount', 1)">＋</button>
+        </div>
+        <div class="zhuang-note" id="zhuang-note">当前连庄倍率：× 1</div>
+      </div>
+    </div>
+
+    <!-- 是否自摸 -->
+    <div class="field-row">
+      <div class="field-label">自摸胡牌</div>
+      <div class="switch-wrap" onclick="toggleZimo()">
+        <div class="switch" id="switch-el"><div class="switch-thumb"></div></div>
+        <span class="switch-txt" id="switch-txt">否（点炮单付）</span>
+      </div>
+    </div>
+
+    <!-- 错误提示 -->
+    <div class="err-box" id="err-box"></div>
+
+    <!-- 计算按钮 -->
+    <button class="calc-btn" onclick="handleCalc()">🀄 计算分数</button>
+  </div>
+
+  <!-- 结果区域 -->
+  <div id="result-section" style="display:none" class="result-section">
+    <div class="total-banner">
+      <div class="total-lbl">最终总分</div>
+      <div class="total-num" id="r-total">0</div>
+      <div class="total-sub" id="r-sub"></div>
+      <div class="pay-highlight" id="r-pay">输家结算会显示在这里</div>
+    </div>
+    <div class="card">
+      <div class="detail-title">📋 计分明细</div>
+      <div class="drow"><span class="dkey">胡牌类型</span><span class="dval" id="r-type"></span></div>
+      <div class="dvr"></div>
+      <div class="drow"><span class="dkey">基础分</span><span class="dval" id="r-base"></span></div>
+      <div class="dvr"></div>
+      <div class="drow"><span class="dkey">花牌分</span><span class="dval" id="r-flower"></span></div>
+      <div class="dvr"></div>
+      <div class="drow"><span class="dkey">金牌分</span><span id="r-gold"></span></div>
+      <div class="dvr"></div>
+      <div class="drow"><span class="dkey">庄家倍率</span><span class="dval" id="r-zhuang"></span></div>
+      <div class="dvr"></div>
+      <div class="drow"><span class="dkey">胡牌方式</span><span class="dval" id="r-zimo"></span></div>
+      <div class="dvr"></div>
+      <div class="drow"><span class="dkey">输家结算</span><span class="dval" id="r-pay-detail"></span></div>
+      <div class="formula-box">
+        <div class="formula-lbl">计算公式</div>
+        <div class="formula-txt" id="r-formula"></div>
+      </div>
+      <div class="sanjin-note" id="sanjin-note">
+        ℹ️ 三金倒：金牌分已含在基础分（50分）内，不另外叠加金牌数量
+      </div>
+    </div>
+  </div>
+
+  <!-- 规则速查 -->
+  <div class="card">
+    <div class="rules-title">📖 计分规则速查</div>
+    <div class="rules-grid">
+      <div class="rule-item"><span class="rname">平胡</span><span class="rscore">= 10 分</span></div>
+      <div class="rule-item"><span class="rname">碰碰胡</span><span class="rscore">= 20 分</span></div>
+      <div class="rule-item"><span class="rname">清一色</span><span class="rscore">= 30 分</span></div>
+      <div class="rule-item hl"><span class="rname">三金倒</span><span class="rscore">= 50 分</span></div>
+      <div class="rule-item"><span class="rname">花牌</span><span class="rscore">+1 / 个</span></div>
+      <div class="rule-item"><span class="rname">金牌</span><span class="rscore">+1 / 个</span></div>
+      <div class="rule-item"><span class="rname">自摸</span><span class="rscore">× 2 后三家平分</span></div>
+      <div class="rule-item"><span class="rname">庄次数</span><span class="rscore">× 倍率</span></div>
+    </div>
+    <div class="rules-note">
+      ⚠️ 三金倒时金牌分已含在基础分内，不另外计入金牌数量<br/>
+      ⚠️ 点炮：点炮玩家单独支付总分；自摸：先 ×2，再由三家平分总分<br/>
+      ⚠️ 本版本不封顶
+    </div>
+  </div>
+
+  <div class="footer">开普敦麻将 16 张 · 不封顶 · 点炮单付 / 自摸×2后三家平分</div>
+</div>
+
+<script>
+  // ===== 胡牌类型配置 =====
+  const HAND_TYPES = {
+    pinghu:    { label: '平胡',   base: 10 },
+    pengpeng:  { label: '碰碰胡', base: 20 },
+    qingyise:  { label: '清一色', base: 30 },
+    sanjindao: { label: '三金倒', base: 50 },
+  };
+
+  let zimo = false;
+  let isDealer = false;
+
+  // ===== 读取整数输入 =====
+  function getInt(id, fallback) {
+    const v = parseInt(document.getElementById(id).value, 10);
+    return isNaN(v) ? fallback : v;
+  }
+
+  // ===== ＋ / － 按钮 =====
+  function change(field, delta) {
+    const el = document.getElementById(field);
+    const min = field === 'zhuangCount' ? 1 : 0;
+    const cur = getInt(field, min);
+    el.value = Math.max(min, cur + delta);
+    if (field === 'zhuangCount') updateZhuangNote();
+  }
+
+  // ===== 边界修正 =====
+  function clamp(field, min) {
+    const el = document.getElementById(field);
+    const v = parseInt(el.value, 10);
+    if (isNaN(v) || v < min) el.value = min;
+    else el.value = Math.floor(v);
+  }
+
+  // ===== 庄次提示 =====
+  function updateZhuangNote() {
+    const v = getInt('zhuangCount', 1);
+    document.getElementById('zhuang-note').textContent = '当前连庄倍率：× ' + v;
+  }
+
+  // ===== 做庄开关 =====
+  function toggleDealer() {
+    isDealer = !isDealer;
+    const sw  = document.getElementById('dealer-switch-el');
+    const txt = document.getElementById('dealer-switch-txt');
+    const field = document.getElementById('zhuang-field');
+    if (isDealer) {
+      sw.classList.add('on');
+      txt.className = 'switch-txt on';
+      txt.textContent = '是（计算庄）';
+      field.style.display = 'block';
+    } else {
+      sw.classList.remove('on');
+      txt.className = 'switch-txt';
+      txt.textContent = '否（不算庄）';
+      field.style.display = 'none';
+    }
+  }
+
+  // ===== 自摸开关 =====
+  function toggleZimo() {
+    zimo = !zimo;
+    const sw  = document.getElementById('switch-el');
+    const txt = document.getElementById('switch-txt');
+    if (zimo) {
+      sw.classList.add('on');
+      txt.className = 'switch-txt on';
+      txt.textContent = '是（三家平分）';
+    } else {
+      sw.classList.remove('on');
+      txt.className = 'switch-txt';
+      txt.textContent = '否（点炮单付）';
+    }
+  }
+
+  // ===== 三金倒时禁用金牌输入 =====
+  function syncGoldState() {
+    const isSanjin = document.getElementById('handType').value === 'sanjindao';
+    const goldInput = document.getElementById('golds');
+    const goldDec   = document.getElementById('gold-dec');
+    const goldInc   = document.getElementById('gold-inc');
+    const goldLabel = document.getElementById('gold-label');
+
+    goldInput.disabled = isSanjin;
+    goldDec.disabled   = isSanjin;
+    goldInc.disabled   = isSanjin;
+
+    // 动态插入 / 移除 hint-tag
+    const existing = goldLabel.querySelector('.hint-tag');
+    if (isSanjin && !existing) {
+      const tag = document.createElement('span');
+      tag.className = 'hint-tag';
+      tag.textContent = '三金倒不另算';
+      goldLabel.appendChild(tag);
+    } else if (!isSanjin && existing) {
+      existing.remove();
+    }
+  }
+
+  // ===== 校验 =====
+  function validate(flowers, golds, zhuangCount, isDealer) {
+    const errs = [];
+    if (isNaN(flowers)     || flowers < 0)     errs.push('花牌数量必须为 ≥ 0 的整数');
+    if (isNaN(golds)       || golds < 0)       errs.push('金牌数量必须为 ≥ 0 的整数');
+    if (isDealer && (isNaN(zhuangCount) || zhuangCount < 1)) errs.push('做庄时，庄次数必须为 ≥ 1 的整数');
+    return errs;
+  }
+
+  // ===== 计分逻辑 =====
+  function calculateScore({ handType, flowers, golds, zhuangCount, zimo, isDealer }) {
+    const cfg         = HAND_TYPES[handType];
+    const isSanjin    = handType === 'sanjindao';
+    const baseScore   = cfg.base;
+    const flowerScore = flowers;
+    const goldScore   = isSanjin ? 0 : golds;
+    const dealerMul   = isDealer ? zhuangCount : 1;
+    const subtotal    = baseScore + flowerScore + goldScore;
+    const zimoMul     = zimo ? 2 : 1;
+    const total       = subtotal * dealerMul * zimoMul;
+
+    const formula = isSanjin
+      ? `(${baseScore} + ${flowerScore}) × ${dealerMul} × ${zimoMul} = ${total}`
+      : `(${baseScore} + ${flowerScore} + ${goldScore}) × ${dealerMul} × ${zimoMul} = ${total}`;
+
+    let payText = '';
+    if (zimo) {
+      const payPerPlayer = total / 3;
+      payText = `自摸：总分 ${total}，三家各付 ${payPerPlayer.toFixed(2)} 分`;
+    } else {
+      payText = `点炮：点炮玩家需付 ${total} 分`;
+    }
+
+    return { label: cfg.label, baseScore, flowerScore, goldScore, isSanjin, zhuangCount, dealerMul, isDealer, zimoMul, formula, total, payText };
+  }
+
+  // ===== 主计算入口 =====
+  function handleCalc() {
+    const handType    = document.getElementById('handType').value;
+    const flowers     = getInt('flowers', 0);
+    const golds       = getInt('golds', 0);
+    const zhuangCount = getInt('zhuangCount', 1);
+
+    // 校验
+    const errs   = validate(flowers, golds, zhuangCount, isDealer);
+    const errBox = document.getElementById('err-box');
+    if (errs.length) {
+      errBox.style.display = 'block';
+      errBox.innerHTML = errs.map(e => `<div class="err-item">⚠️ ${e}</div>`).join('');
+      document.getElementById('result-section').style.display = 'none';
+      return;
+    }
+    errBox.style.display = 'none';
+
+    // 计算
+    const r = calculateScore({ handType, flowers, golds, zhuangCount, zimo, isDealer });
+
+    // 填入结果
+    document.getElementById('r-total').textContent   = r.total;
+    document.getElementById('r-sub').textContent     = `${r.label} · ${zimo ? '自摸' : '点炮'} · ${r.isDealer ? `庄家（第 ${r.zhuangCount} 庄）` : '闲家'}`;
+    document.getElementById('r-type').innerHTML      = `<span class="badge badge-amber">${r.label}</span>`;
+    document.getElementById('r-base').textContent    = r.baseScore + ' 分';
+    document.getElementById('r-flower').textContent  = '+ ' + r.flowerScore + ' 分';
+    document.getElementById('r-gold').innerHTML      = r.isSanjin
+      ? '<span class="dval-muted">不另外计入</span>'
+      : `<span class="dval">+ ${r.goldScore} 分</span>`;
+    document.getElementById('r-zhuang').innerHTML   = r.isDealer
+      ? `<span class="badge badge-blue">× ${r.dealerMul}</span>`
+      : `<span class="badge badge-gray">× 1（非庄）</span>`;
+    document.getElementById('r-zimo').innerHTML     = zimo
+      ? `<span class="badge badge-red">× 2（自摸，三家平分）</span>`
+      : `<span class="badge badge-gray">× 1（点炮，单家支付）</span>`;
+    document.getElementById('r-pay').textContent     = r.payText;
+    document.getElementById('r-pay-detail').textContent = r.payText;
+    document.getElementById('r-formula').textContent = r.formula;
+    document.getElementById('sanjin-note').style.display = r.isSanjin ? 'block' : 'none';
+
+    // 显示结果并滚动
+    const rs = document.getElementById('result-section');
+    rs.style.display   = 'block';
+    rs.style.animation = 'none';
+    void rs.offsetWidth;  // 触发重排，重置动画
+    rs.style.animation = 'fadeUp 0.32s ease';
+    setTimeout(() => rs.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
+  }
+</script>
+
+</body>
+</html>
